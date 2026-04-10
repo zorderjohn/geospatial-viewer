@@ -96,3 +96,125 @@ input {
   margin: 0 0 20px 18px;
   padding: 0;
 }
+
+/* ---- Control Panel ---- */
+
+.control-panel h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.control-panel h2:not(:first-child) {
+  margin-top: 20px;
+}
+
+/* model toggles */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.toggle-label {
+  color: #d1d5db;
+}
+
+/* marker inputs */
+.marker-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.marker-inputs label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.marker-inputs input {
+  flex: 1;
+  padding: 4px 8px;
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 4px;
+  color: #e5e7eb;
+  font-size: 13px;
+}
+
+.marker-inputs input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+/* buttons */
+.marker-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.marker-actions button {
+  flex: 1;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  background: #3b82f6;
+  color: #fff;
+}
+
+.marker-actions button:hover {
+  background: #2563eb;
+}
+
+.marker-actions .btn-secondary {
+  background: #374151;
+  color: #d1d5db;
+}
+
+.marker-actions .btn-secondary:hover {
+  background: #4b5563;
+}
+
+/* status / hints */
+.hint {
+  margin: 8px 0 4px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.status-text {
+  min-height: 18px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.status-text.error {
+  color: #ef4444;
+}
+
+.status-text.success {
+  color: #22c55e;
+}
+
+.nav-hints {
+  margin: 0 0 0 18px;
+  padding: 0;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.nav-hints li {
+  margin-bottom: 2px;
+}
