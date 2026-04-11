@@ -133,7 +133,6 @@ export class SceneController {
     const maxDim = Math.max(size.x, size.y, size.z);
 
     this.replaceHelpers(maxDim);
-    this.scaleLights(maxDim);
     this.markerManager.setMarkerSize(Math.max(0.5, maxDim * 0.012));
     this.fitCamera(sceneBounds);
   }
@@ -216,12 +215,7 @@ export class SceneController {
     const ambient = new THREE.AmbientLight(0xffffff, 0.55);
     this.scene.add(ambient);
 
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x334455, 0.5);
-    hemi.position.set(0, 50, 0);
-    hemi.name = 'hemi';
-    this.scene.add(hemi);
-
-    const key = new THREE.DirectionalLight(0xffffff, 1.2);
+    const key = new THREE.DirectionalLight(0xffffff, 2.2);
     key.position.set(20, 30, 10);
     key.name = 'key';
     this.scene.add(key);
@@ -230,14 +224,6 @@ export class SceneController {
     fill.position.set(-15, 10, -20);
     fill.name = 'fill';
     this.scene.add(fill);
-  }
-
-  private scaleLights(extent: number): void {
-    const factor = Math.max(1, extent / 30);
-    for (const name of ['hemi', 'key', 'fill']) {
-      const light = this.scene.getObjectByName(name);
-      if (light) light.position.multiplyScalar(factor);
-    }
   }
 
   /* ---- helpers (grid + axes) --------------------------------------- */
