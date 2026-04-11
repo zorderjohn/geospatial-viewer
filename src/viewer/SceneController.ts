@@ -219,11 +219,6 @@ export class SceneController {
     key.position.set(20, 30, 10);
     key.name = 'key';
     this.scene.add(key);
-
-    const fill = new THREE.DirectionalLight(0xffffff, 0.6);
-    fill.position.set(-15, 10, -20);
-    fill.name = 'fill';
-    this.scene.add(fill);
   }
 
   /* ---- helpers (grid + axes) --------------------------------------- */
