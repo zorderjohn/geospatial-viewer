@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 
 /**
- * Creates and manages marker entities (small cubes) in scene space.
+ * Creates and manages marker entities (small cubes) in GIS coordinate space.
  *
- * Markers are direct children of the scene, so their position matches
- * the coordinate system the user sees (grid, axes, camera).
+ * Markers are children of the shared offset group, so their positions
+ * are specified in the same GIS coordinates as the loaded models
+ * (easting, northing, elevation).
  */
 export class MarkerManager {
   private readonly markers: THREE.Mesh[] = [];

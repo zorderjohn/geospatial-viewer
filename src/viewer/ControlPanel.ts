@@ -6,7 +6,7 @@ import { parseVector3Input } from '../logic/parseVector3Input';
  *
  * Responsibilities:
  *  - model show/hide toggles
- *  - XYZ coordinate input + add-marker button
+ *  - GIS coordinate input (easting / northing / elevation) + add-marker button
  *  - clear-markers button
  *  - navigation hints
  *
@@ -15,7 +15,7 @@ import { parseVector3Input } from '../logic/parseVector3Input';
 
 export interface ControlPanelCallbacks {
   onToggleModel: (id: string, visible: boolean) => void;
-  onAddMarker: (x: number, y: number, z: number) => void;
+  onAddMarker: (easting: number, northing: number, elevation: number) => void;
   onClearMarkers: () => void;
 }
 
@@ -48,15 +48,15 @@ export class ControlPanel {
 
       <h2>Place Marker</h2>
       <div class="marker-inputs">
-        <label>X <input type="number" id="marker-x" step="any" value="0" /></label>
-        <label>Y <input type="number" id="marker-y" step="any" value="5" /></label>
-        <label>Z <input type="number" id="marker-z" step="any" value="0" /></label>
+        <label>Easting <input type="number" id="marker-easting" step="any" value="0" /></label>
+        <label>Northing <input type="number" id="marker-northing" step="any" value="0" /></label>
+        <label>Elevation <input type="number" id="marker-elevation" step="any" value="0" /></label>
       </div>
       <div class="marker-actions">
         <button id="btn-add-marker">Add Marker</button>
         <button id="btn-clear-markers" class="btn-secondary">Clear All</button>
       </div>
-      <p class="hint">Coordinates in scene space. Y = up (elevation).</p>
+      <p class="hint">GIS coordinates (same frame as the OBJ models).</p>
       <div id="marker-status" class="status-text"></div>
 
       <h2>Navigation</h2>
@@ -79,13 +79,13 @@ export class ControlPanel {
       });
 
     // --- wire marker controls ---
-    const xIn = this.el.querySelector<HTMLInputElement>('#marker-x')!;
-    const yIn = this.el.querySelector<HTMLInputElement>('#marker-y')!;
-    const zIn = this.el.querySelector<HTMLInputElement>('#marker-z')!;
+    const eIn = this.el.querySelector<HTMLInputElement>('#marker-easting')!;
+    const nIn = this.el.querySelector<HTMLInputElement>('#marker-northing')!;
+    const elIn = this.el.querySelector<HTMLInputElement>('#marker-elevation')!;
     const status = this.el.querySelector<HTMLElement>('#marker-status')!;
 
     this.el.querySelector('#btn-add-marker')!.addEventListener('click', () => {
-      const result = parseVector3Input(xIn.value, yIn.value, zIn.value);
+      const result = parseVector3Input(eIn.value, nIn.value, elIn.value);
       if (!result.ok) {
         status.textContent = result.error;
         status.className = 'status-text error';
@@ -93,7 +93,7 @@ export class ControlPanel {
       }
       const { x, y, z } = result.value;
       callbacks.onAddMarker(x, y, z);
-      status.textContent = `Marker at (${x}, ${y}, ${z})`;
+      status.textContent = `Marker at E${x} N${y} El${z}`;
       status.className = 'status-text success';
     });
 

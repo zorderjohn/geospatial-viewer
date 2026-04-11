@@ -59,10 +59,10 @@ Vite serves the `public/` directory statically, so the app fetches them at runti
 ## How the Viewer Works
 
 1. **Load** — both OBJ files are fetched as text, preprocessed (see below), and parsed by Three.js `OBJLoader`.
-2. **Centre** — a shared world-centre is computed from the combined bounding box of all raw geometry. Every model is offset by `−worldCentre` so the scene sits near the origin (avoids WebGL float-precision issues with UTM-scale coordinates).
-3. **Rotate** — each model root is rotated −90° around X to convert Deswik's Z-up coordinate system to Three.js's Y-up convention.
+2. **Centre** — a shared GIS-space bounding box is computed from all raw geometry. A single `offset` node is positioned at `−centre` so the scene sits near the origin (avoids WebGL float-precision issues with UTM-scale coordinates).
+3. **Rotate** — a single `gis_root` node applies −90° around X, converting Deswik's Z-up coordinate system to Three.js's Y-up convention. All models and markers inherit this transform.
 4. **Render** — the scene runs a standard requestAnimationFrame loop with OrbitControls for camera interaction.
-5. **Markers** — the user enters X / Y / Z in scene-space coordinates and clicks "Add Marker" to place a red cube at that position.
+5. **Markers** — the user enters easting / northing / elevation in GIS coordinates and clicks "Add Marker" to place a red cube at that position. Markers share the same coordinate frame as the OBJ models.
 
 ### Comma-decimal fix
 
@@ -76,7 +76,7 @@ Deswik.CAD exports OBJ files with **commas as decimal separators** (European loc
 | Y (raw) → Z | Northing              | Depth (−northing)          |
 | Z (raw) → Y | Elevation             | Up (elevation)             |
 
-The correction is a single Euler rotation `{ x: −π/2 }` applied to each **model root Group**. The raw geometry inside the OBJ objects is never modified — the fix lives in one transform node per model, making it trivial to review or adjust.
+The correction is a single Euler rotation `{ x: −π/2 }` applied to the shared **gis_root Group**. The raw geometry inside the OBJ objects is never modified — the fix lives in one transform node, making it trivial to review or adjust.
 
 ---
 
@@ -90,12 +90,14 @@ src/
     App.ts                       Application shell, DOM layout, wiring
   viewer/
     SceneController.ts           Scene, camera, renderer, controls, lights,
-                                 helpers, render loop. Owns ModelManager
-                                 and MarkerManager.
-    ModelManager.ts              OBJ loading, material assignment, centering,
-                                 rotation correction, visibility toggling.
-    MarkerManager.ts             Creates / removes marker cubes in scene space.
-    ControlPanel.ts              Plain-DOM controls (toggles, XYZ input, buttons).
+                                 helpers, render loop. Builds the GIS hierarchy
+                                 (gis_root → offset → models/markers).
+    ModelManager.ts              OBJ loading, material assignment, visibility
+                                 toggling. Loads into a provided container.
+    MarkerManager.ts             Creates / removes marker cubes in GIS
+                                 coordinate space.
+    ControlPanel.ts              Plain-DOM controls (toggles, easting/northing/
+                                 elevation input, buttons).
   logic/
     objTextFixer.ts              Pure function: comma → period fix for OBJ text.
     parseVector3Input.ts         Pure function: parse & validate 3 string inputs
@@ -104,7 +106,7 @@ src/
     parseVector3Input.test.ts    Unit tests for coordinate parsing.
   config/
     modelConfigs.ts              Declarative model definitions (paths, colours,
-                                 rotation corrections, initial visibility).
+                                 initial visibility).
 ```
 
 ### Responsibilities
@@ -112,27 +114,27 @@ src/
 | Module            | Responsibility                                      |
 |-------------------|-----------------------------------------------------|
 | `App`             | Bootstrap app shell and wire UI to scene systems    |
-| `SceneController` | Own scene, camera, renderer, controls, and loop     |
-| `ModelManager`    | Load models, apply root transforms, manage visibility |
-| `MarkerManager`   | Create and clear marker entities                    |
-| `ControlPanel`    | DOM controls for toggles and marker coordinate input |
-| `modelConfigs`    | Declarative model metadata and transform corrections |
+| `SceneController` | Own scene, camera, renderer, controls, GIS hierarchy, and loop |
+| `ModelManager`    | Load models into container, manage visibility         |
+| `MarkerManager`   | Create and clear marker entities in GIS coords        |
+| `ControlPanel`    | DOM controls for toggles and GIS coordinate input     |
+| `modelConfigs`    | Declarative model metadata (paths, colours, visibility) |
 | `logic/*`         | Pure parsing and preprocessing utilities            |
 
-### Scene-graph hierarchy (per model)
+### Scene-graph hierarchy
 
 ```
 scene
- ├── model-root  (Euler rotation: Z-up → Y-up)
- │    └── offset  (position: −worldCentre)
- │         └── OBJ Group  (raw parsed geometry — untouched)
- ├── markers…     (direct scene children, scene-space coords)
+ ├── gis_root   (Euler rotation: Z-up → Y-up)
+ │    └── offset   (position: −GIS centre)
+ │         ├── models    (container for loaded OBJ groups)
+ │         └── markers   (container for user-placed markers)
  ├── GridHelper
  ├── AxesHelper
  └── Lights
 ```
 
-This hierarchy keeps **model-local space** and **world placement** cleanly separated. The raw OBJ geometry is never mutated; all spatial corrections flow through the root Group transform.
+Models and markers share the same GIS coordinate frame. The single `offset` node centres everything near the origin, and the single `gis_root` node handles the axis convention flip. Raw OBJ geometry is never mutated.
 
 ---
 
@@ -142,8 +144,8 @@ This hierarchy keeps **model-local space** and **world placement** cleanly separ
 |----------|-----------|
 | **Fetch + text preprocess instead of `OBJLoader.load()`** | Needed to fix comma decimals before parsing. Also avoids the callback-based API. |
 | **Shared world-centre offset** | UTM coordinates (~690 000, ~4 183 000) would cause severe float jitter in WebGL. Subtracting a shared centre brings everything near the origin. |
-| **One root Group per model** | Keeps orientation fix in a single transform node. Easy to extend with per-model scale or additional offset for future telemetry data. |
-| **Markers in scene space** | Scene-space coordinates match what the user sees (grid, axes). Simple to verify visually. In production you'd add a GIS-coordinate input mode. |
+| **Single gis_root + offset for all models** | One rotation and one offset node shared by models and markers. Keeps the hierarchy flat and ensures markers land in the correct GIS frame. |
+| **Markers in GIS coordinates** | Users enter the same easting / northing / elevation as the source data. The shared hierarchy transforms them to scene space automatically. |
 | **Adaptive grid / axes / marker sizing** | Grid, axes helper, and marker cube size are recomputed after models load, scaled to ~1 % of the scene extent. Works regardless of model size. |
 | **`DoubleSide` material** | Mining meshes often have inconsistent winding. DoubleSide avoids invisible back-faces at no meaningful cost for this model count. |
 | **No MTL loading** | The OBJ files reference `.mtl` files that may or may not ship. Assigning a solid colour per model is sufficient for geometric inspection and avoids a loader dependency. |
@@ -160,18 +162,17 @@ This hierarchy keeps **model-local space** and **world placement** cleanly separ
 | Right-drag | Pan camera |
 | Scroll wheel | Zoom |
 | Model checkboxes | Toggle visibility per model |
-| X / Y / Z inputs + **Add Marker** | Place a red cube at the entered scene-space coordinates |
+| Easting / Northing / Elevation inputs + **Add Marker** | Place a red cube at the entered GIS coordinates |
 | **Clear All** | Remove all markers |
 
-**Coordinate hints:** `Y` is up (elevation). `(0, 0, 0)` is the centroid of all loaded geometry. The grid lies on the XZ plane.
+**Coordinate hints:** Marker coordinates are in GIS space (same as the OBJ source data). `(0, 0, 0)` in the viewer corresponds to the GIS centroid of all loaded geometry. The grid lies on the scene XZ plane (Y-up).
 
 ---
 
 ## Known Limitations / Next Steps
 
-- **No GIS coordinate input** — markers use scene-local coords. A future version could accept raw UTM easting/northing/elevation and convert.
 - **No MTL / texture support** — models render with solid colours.
-- **No streaming / real-time telemetry** — the architecture (root-group transforms, world-centre offset) is designed to accommodate this in a future block.
+- **No streaming / real-time telemetry** — the architecture (shared gis_root, offset) is designed to accommodate this in a future block.
 - **Single-threaded OBJ parsing** — adequate for these file sizes (~300 KB and ~1.5 MB). For larger datasets, a Web Worker pipeline would help.
 - **No LOD / instancing** — not needed at current polygon counts.
 - **Marker management is basic** — no labels, no selection, no persistence. Sufficient for Block 1 verification.

@@ -21,9 +21,9 @@ export function parseVector3Input(
   zStr: string,
 ): ParseResult {
   const parts: { label: string; raw: string }[] = [
-    { label: 'X', raw: xStr },
-    { label: 'Y', raw: yStr },
-    { label: 'Z', raw: zStr },
+    { label: 'Easting', raw: xStr },
+    { label: 'Northing', raw: yStr },
+    { label: 'Elevation', raw: zStr },
   ];
 
   const values: number[] = [];

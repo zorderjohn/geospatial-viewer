@@ -36,49 +36,49 @@ describe('parseVector3Input', () => {
 
   /* ---------- invalid inputs ---------- */
 
-  it('rejects empty X', () => {
+  it('rejects empty Easting', () => {
     const r = parseVector3Input('', '2', '3');
-    expect(r).toEqual({ ok: false, error: 'X is empty' });
+    expect(r).toEqual({ ok: false, error: 'Easting is empty' });
   });
 
-  it('rejects empty Y', () => {
+  it('rejects empty Northing', () => {
     const r = parseVector3Input('1', '  ', '3');
-    expect(r).toEqual({ ok: false, error: 'Y is empty' });
+    expect(r).toEqual({ ok: false, error: 'Northing is empty' });
   });
 
-  it('rejects empty Z', () => {
+  it('rejects empty Elevation', () => {
     const r = parseVector3Input('1', '2', '');
-    expect(r).toEqual({ ok: false, error: 'Z is empty' });
+    expect(r).toEqual({ ok: false, error: 'Elevation is empty' });
   });
 
-  it('rejects non-numeric X', () => {
+  it('rejects non-numeric Easting', () => {
     const r = parseVector3Input('abc', '2', '3');
-    expect(r).toEqual({ ok: false, error: 'X is not a valid number' });
+    expect(r).toEqual({ ok: false, error: 'Easting is not a valid number' });
   });
 
-  it('rejects non-numeric Y', () => {
+  it('rejects non-numeric Northing', () => {
     const r = parseVector3Input('1', 'hello', '3');
-    expect(r).toEqual({ ok: false, error: 'Y is not a valid number' });
+    expect(r).toEqual({ ok: false, error: 'Northing is not a valid number' });
   });
 
-  it('rejects non-numeric Z', () => {
+  it('rejects non-numeric Elevation', () => {
     const r = parseVector3Input('1', '2', '!@#');
-    expect(r).toEqual({ ok: false, error: 'Z is not a valid number' });
+    expect(r).toEqual({ ok: false, error: 'Elevation is not a valid number' });
   });
 
   it('rejects Infinity', () => {
     const r = parseVector3Input('Infinity', '0', '0');
-    expect(r).toEqual({ ok: false, error: 'X must be finite' });
+    expect(r).toEqual({ ok: false, error: 'Easting must be finite' });
   });
 
   it('rejects -Infinity', () => {
     const r = parseVector3Input('0', '-Infinity', '0');
-    expect(r).toEqual({ ok: false, error: 'Y must be finite' });
+    expect(r).toEqual({ ok: false, error: 'Northing must be finite' });
   });
 
   it('reports the first failing field', () => {
-    // Both X and Y are bad — should report X first
+    // Both Easting and Northing are bad — should report Easting first
     const r = parseVector3Input('', 'bad', '0');
-    expect(r).toEqual({ ok: false, error: 'X is empty' });
+    expect(r).toEqual({ ok: false, error: 'Easting is empty' });
   });
 });

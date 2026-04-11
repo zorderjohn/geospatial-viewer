@@ -38,7 +38,7 @@ export class App {
     new ControlPanel(sidebar, MODEL_CONFIGS, {
       onToggleModel: (id, visible) =>
         this.sceneController.setModelVisibility(id, visible),
-      onAddMarker: (x, y, z) => this.sceneController.addMarker(x, y, z),
+      onAddMarker: (e, n, el) => this.sceneController.addMarker(e, n, el),
       onClearMarkers: () => this.sceneController.clearMarkers(),
     });
 

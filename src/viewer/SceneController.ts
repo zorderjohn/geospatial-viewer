@@ -5,8 +5,29 @@ import { ModelManager } from './ModelManager';
 import { MarkerManager } from './MarkerManager';
 
 /**
+ * GIS → Three.js rotation: −90° around X maps Z-up to Y-up.
+ * Applied once on the shared gis_root node.
+ */
+const GIS_TO_SCENE_ROTATION = new THREE.Euler(-Math.PI / 2, 0, 0);
+
+/**
  * Owns the Three.js scene, camera, renderer, controls, lighting,
- * reference helpers, and the two domain managers (models + markers).
+ * reference helpers, and the GIS coordinate hierarchy.
+ *
+ * Scene-graph layout:
+ *
+ *   scene
+ *   ├── gis_root   (rotation: Z-up → Y-up)
+ *   │    └── offset   (position: −center, in GIS coords)
+ *   │         ├── models   (container for loaded OBJ groups)
+ *   │         └── markers  (container for user-placed markers)
+ *   ├── GridHelper
+ *   ├── AxesHelper
+ *   └── Lights
+ *
+ * Models and markers share the same GIS coordinate frame.
+ * The user enters marker positions in GIS coordinates (easting,
+ * northing, elevation) and they land correctly relative to geometry.
  */
 export class SceneController {
   private readonly scene = new THREE.Scene();
@@ -15,8 +36,17 @@ export class SceneController {
   private readonly controls: OrbitControls;
   private readonly resizeObserver: ResizeObserver;
 
+  // GIS hierarchy nodes
+  private readonly gisRoot = new THREE.Group();
+  private readonly offset = new THREE.Group();
+  private readonly modelsContainer = new THREE.Group();
+  private readonly markersContainer = new THREE.Group();
+
   private readonly modelManager: ModelManager;
   private readonly markerManager: MarkerManager;
+
+  /** GIS centre used for offset (stored so the UI can show it). */
+  private readonly gisCenter = new THREE.Vector3();
 
   private gridHelper?: THREE.GridHelper;
   private axesHelper?: THREE.AxesHelper;
@@ -38,11 +68,24 @@ export class SceneController {
     this.controls.minDistance = 0.5;
     this.controls.maxDistance = 50000;
 
+    // Build the GIS hierarchy
+    this.gisRoot.name = 'gis_root';
+    this.gisRoot.rotation.copy(GIS_TO_SCENE_ROTATION);
+
+    this.offset.name = 'offset';
+    this.modelsContainer.name = 'models';
+    this.markersContainer.name = 'markers';
+
+    this.offset.add(this.modelsContainer);
+    this.offset.add(this.markersContainer);
+    this.gisRoot.add(this.offset);
+    this.scene.add(this.gisRoot);
+
     this.addLighting();
     this.addHelpers(100, 100, 4);
 
-    this.modelManager = new ModelManager(this.scene);
-    this.markerManager = new MarkerManager(this.scene);
+    this.modelManager = new ModelManager(this.modelsContainer);
+    this.markerManager = new MarkerManager(this.markersContainer);
 
     this.resizeObserver = new ResizeObserver(() => {
       this.resize();
@@ -68,34 +111,45 @@ export class SceneController {
     tick();
   }
 
-  /** Load OBJ models, fit helpers & camera to their extent. */
+  /** Load OBJ models, compute shared offset, fit helpers & camera. */
   async loadModels(configs: ModelConfig[]): Promise<void> {
     await this.modelManager.loadAll(configs);
 
-    const bounds = this.modelManager.getAllBounds();
-    if (bounds.isEmpty()) return;
+    // Compute GIS centre from raw model bounds (before offset is set)
+    const gisBounds = this.modelManager.getLocalBounds();
+    if (gisBounds.isEmpty()) return;
 
-    const size = bounds.getSize(new THREE.Vector3());
+    gisBounds.getCenter(this.gisCenter);
+    this.offset.position.set(
+      -this.gisCenter.x,
+      -this.gisCenter.y,
+      -this.gisCenter.z,
+    );
+
+    // From here, gis_root transforms everything into scene space.
+    // Compute scene-space bounds for helpers / camera.
+    const sceneBounds = new THREE.Box3().expandByObject(this.gisRoot);
+    const size = sceneBounds.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
 
-    // Resize grid + axes to match model extent
     this.replaceHelpers(maxDim);
-
-    // Scale directional lights outward so they illuminate the full scene
     this.scaleLights(maxDim);
-
-    // Set marker size to ~1 % of max dimension (visible but not huge)
     this.markerManager.setMarkerSize(Math.max(0.5, maxDim * 0.012));
+    this.fitCamera(sceneBounds);
+  }
 
-    this.fitCamera();
+  /** Returns the GIS centre used for offset (easting, northing, elevation). */
+  getGisCenter(): THREE.Vector3 {
+    return this.gisCenter.clone();
   }
 
   setModelVisibility(id: string, visible: boolean): void {
     this.modelManager.setVisibility(id, visible);
   }
 
-  addMarker(x: number, y: number, z: number): void {
-    this.markerManager.addMarker(x, y, z);
+  /** Add a marker at GIS coordinates (easting, northing, elevation). */
+  addMarker(easting: number, northing: number, elevation: number): void {
+    this.markerManager.addMarker(easting, northing, elevation);
   }
 
   clearMarkers(): void {
@@ -133,13 +187,11 @@ export class SceneController {
     this.renderer.setSize(w, h, false);
   }
 
-  /** Position the camera so it frames all loaded geometry. */
-  private fitCamera(): void {
-    const bounds = this.modelManager.getAllBounds();
-    if (bounds.isEmpty()) return;
+  private fitCamera(sceneBounds: THREE.Box3): void {
+    if (sceneBounds.isEmpty()) return;
 
-    const center = bounds.getCenter(new THREE.Vector3());
-    const size = bounds.getSize(new THREE.Vector3());
+    const center = sceneBounds.getCenter(new THREE.Vector3());
+    const size = sceneBounds.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
 
     const fovRad = this.camera.fov * (Math.PI / 180);
@@ -180,7 +232,6 @@ export class SceneController {
     this.scene.add(fill);
   }
 
-  /** Move directional / hemisphere lights outward to cover large geometry. */
   private scaleLights(extent: number): void {
     const factor = Math.max(1, extent / 30);
     for (const name of ['hemi', 'key', 'fill']) {
@@ -199,7 +250,6 @@ export class SceneController {
     this.scene.add(this.axesHelper);
   }
 
-  /** Replace helpers with ones scaled to the model extent. */
   private replaceHelpers(extent: number): void {
     if (this.gridHelper) {
       this.scene.remove(this.gridHelper);
