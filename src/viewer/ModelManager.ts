@@ -47,11 +47,23 @@ export class ModelManager {
     if (m) m.group.visible = visible;
   }
 
-  /** AABB of all loaded geometry in the container's local space (GIS coords). */
+  /**
+   * AABB of all loaded geometry in raw GIS coordinates.
+   *
+   * Computed directly from geometry bounding boxes so it is independent
+   * of any ancestor transforms (gisRoot rotation, offset position).
+   */
   getLocalBounds(): THREE.Box3 {
     const box = new THREE.Box3();
     for (const { group } of this.models.values()) {
-      box.expandByObject(group);
+      group.traverse(child => {
+        if (child instanceof THREE.Mesh && child.geometry) {
+          child.geometry.computeBoundingBox();
+          if (child.geometry.boundingBox) {
+            box.union(child.geometry.boundingBox);
+          }
+        }
+      });
     }
     return box;
   }
