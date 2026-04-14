@@ -56,18 +56,17 @@ export class ModelManager {
   getLocalBounds(): THREE.Box3 {
     const box = new THREE.Box3();
     const relativeMatrix = new THREE.Matrix4();
+    this.container.updateMatrixWorld(true);
+    const containerInverse = new THREE.Matrix4().copy(this.container.matrixWorld).invert();
     for (const { group } of this.models.values()) {
-      group.updateMatrixWorld(true);
-      // Get transformation from World to this group's local space, so we can compute bounding boxes
-      const groupInverse = new THREE.Matrix4().copy(group.matrixWorld).invert();
       group.traverse(child => {
         if (child instanceof THREE.Mesh && child.geometry) {
           child.geometry.computeBoundingBox();
           if (child.geometry.boundingBox) {
             const childBox = child.geometry.boundingBox.clone();
 
-            // Transform child bounding box to group local space
-            relativeMatrix.multiplyMatrices(groupInverse, child.matrixWorld);
+            // Transform child bounding box to container local space
+            relativeMatrix.multiplyMatrices(containerInverse, child.matrixWorld);
             childBox.applyMatrix4(relativeMatrix);
             box.union(childBox);
           }
